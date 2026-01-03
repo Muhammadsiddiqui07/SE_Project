@@ -93,9 +93,14 @@ function DisplayContent({ user }) {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-2.5 rounded-xl font-bold transition-all active:translate-y-0.5 flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 disabled:opacity-70 min-w-[160px]"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-2.5 rounded-xl font-bold transition-all active:translate-y-0.5 flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 disabled:opacity-70 min-w-[160px] min-h-[46px]"
                     >
-                        {loading ? <Loader type="dots" /> : (
+                        {loading ? (
+                            <>
+                                <Loader variant="button" type="dots" size={24} />
+                                <span>Showing...</span>
+                            </>
+                        ) : (
                             <>
                                 <Search size={18} />
                                 <span>Show Content</span>

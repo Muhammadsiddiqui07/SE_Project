@@ -175,13 +175,13 @@ const CourseContent = () => {
                         <button
                             type="submit"
                             disabled={uploading}
-                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 disabled:opacity-70 disabled:cursor-not-allowed"
+                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 disabled:opacity-70 disabled:cursor-not-allowed min-h-[56px]"
                         >
                             {uploading ? (
-                                <div className="flex items-center gap-2">
-                                    <Loader type="dots" />
-                                    <span>Publishing...</span>
-                                </div>
+                                <>
+                                    <Loader variant="button" type="dots" size={24} />
+                                    <span>Publishing Content...</span>
+                                </>
                             ) : (
                                 <>
                                     <Save size={20} />

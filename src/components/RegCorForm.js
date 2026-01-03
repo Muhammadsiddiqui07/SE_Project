@@ -205,11 +205,11 @@ const RegistrationForm = ({ user }) => {
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl transition-all active:translate-y-0.5 mt-4 flex justify-center items-center gap-2 shadow-lg shadow-indigo-100 disabled:opacity-70 disabled:cursor-not-allowed"
+                                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl transition-all active:translate-y-0.5 mt-4 flex justify-center items-center gap-2 shadow-lg shadow-indigo-100 disabled:opacity-70 disabled:cursor-not-allowed min-h-[54px]"
                                 >
                                     {loading ? (
                                         <>
-                                            <Loader type="dots" />
+                                            <Loader variant="button" size={24} type="dots" />
                                             <span>Processing...</span>
                                         </>
                                     ) : (

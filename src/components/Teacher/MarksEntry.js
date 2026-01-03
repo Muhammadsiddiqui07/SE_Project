@@ -261,10 +261,22 @@ const MarksEntry = () => {
                         <button
                             onClick={submitMarks}
                             disabled={loading || !assignedCourse}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-4 rounded-2xl font-black shadow-xl shadow-indigo-100 transition-all active:scale-95 flex items-center gap-3 disabled:opacity-50"
+                            className={`
+                                flex items-center justify-center gap-3 px-10 py-4 rounded-2xl font-black text-white shadow-xl transition-all active:scale-95 min-w-[280px]
+                                ${loading ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100'}
+                            `}
                         >
-                            <Save size={20} />
-                            {editingResultId ? "Update Published Result" : "Publish Final Results"}
+                            {loading ? (
+                                <>
+                                    <Loader variant="button" size={20} />
+                                    <span>Publishing...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Save size={20} />
+                                    <span>{editingResultId ? "Update Published Result" : "Publish Final Results"}</span>
+                                </>
+                            )}
                         </button>
                     </div>
                 </div>

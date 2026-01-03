@@ -405,12 +405,21 @@ const Attendance = () => {
                             onClick={submitAttendance}
                             disabled={loading}
                             className={`
-                                flex items-center gap-3 px-10 py-4 rounded-2xl font-black text-white shadow-xl transition-all active:scale-95
-                                ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'}
+                                flex items-center justify-center gap-3 px-10 py-4 rounded-2xl font-black text-white shadow-xl transition-all active:scale-95 min-w-[240px]
+                                ${loading ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'}
                             `}
                         >
-                            {loading ? <Loader size={20} color="white" /> : <Save size={20} />}
-                            {editingId ? 'Update Attendance' : 'Save Attendance'}
+                            {loading ? (
+                                <>
+                                    <Loader variant="button" size={20} />
+                                    <span>Processing...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Save size={20} />
+                                    <span>{editingId ? 'Update Attendance' : 'Save Attendance'}</span>
+                                </>
+                            )}
                         </button>
                     </div>
                 </div>
