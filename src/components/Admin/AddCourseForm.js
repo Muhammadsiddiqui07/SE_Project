@@ -79,8 +79,8 @@ function AddCourse({ handleSubmit, isLoading, teachers }) {
                     >
                         <option value="">Select a Teacher</option>
                         {teachers && teachers.map(t => (
-                            <option key={t.id} value={`${t.firstname} ${t.lastname}`}>
-                                {t.firstname} {t.lastname} ({t.email})
+                            <option key={t.id} value={t.id}>
+                                {t.firstname} {t.lastname} ({t.id})
                             </option>
                         ))}
                     </select>

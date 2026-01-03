@@ -32,11 +32,19 @@ const AdminCourseView = () => {
     const [actionLoadingId, setActionLoadingId] = useState(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isAddLoading, setIsAddLoading] = useState(false);
-    // const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    // const [editCourse, setEditCourse] = useState(null);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editCourse, setEditCourse] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
-
     const [teachers, setTeachers] = useState([]);
+
+    const [editFormData, setEditFormData] = useState({
+        Category: '',
+        title: '',
+        id: '',
+        teacherName: '',
+        teacherId: '',
+        Seats: ''
+    });
 
     // Fetch courses and teachers
     const fetchData = async () => {
@@ -75,11 +83,13 @@ const AdminCourseView = () => {
     const handleAddCourseSubmit = async (values) => {
         setIsAddLoading(true);
         try {
+            const assignedTeacher = teachers.find(t => t.id === values.teacherName); // values.teacherName now contains the ID
             await setDoc(doc(db, "Courses", values.id), {
                 CourseCategory: values.Category,
                 CourseTitle: values.title,
                 CourseId: values.id,
-                TeacherName: values.teacherName,
+                TeacherName: assignedTeacher ? `${assignedTeacher.firstname} ${assignedTeacher.lastname}` : 'Unassigned',
+                TeacherId: values.teacherName, // Store UID properly
                 AvailableSeats: values.Seats
             });
             setIsAddModalOpen(false);
@@ -91,6 +101,42 @@ const AdminCourseView = () => {
         } finally {
             setIsAddLoading(false);
         }
+    };
+
+    const handleUpdateCourse = async (e) => {
+        e.preventDefault();
+        setIsAddLoading(true);
+        try {
+            const assignedTeacher = teachers.find(t => t.id === editFormData.teacherId);
+            await setDoc(doc(db, "Courses", editCourse.id), {
+                CourseCategory: editFormData.Category,
+                CourseTitle: editFormData.title,
+                TeacherName: assignedTeacher ? `${assignedTeacher.firstname} ${assignedTeacher.lastname}` : 'Unassigned',
+                TeacherId: editFormData.teacherId,
+                AvailableSeats: editFormData.Seats
+            }, { merge: true });
+            setIsEditModalOpen(false);
+            fetchData();
+            alert("Course updated successfully!");
+        } catch (error) {
+            console.error("Error updating course:", error);
+            alert("Failed to update course");
+        } finally {
+            setIsAddLoading(false);
+        }
+    };
+
+    const openEditModal = (course) => {
+        setEditCourse(course);
+        setEditFormData({
+            Category: course.CourseCategory || '',
+            title: course.CourseTitle || '',
+            id: course.id,
+            teacherName: course.TeacherName || '',
+            teacherId: course.TeacherId || '',
+            Seats: course.AvailableSeats || ''
+        });
+        setIsEditModalOpen(true);
     };
 
     // Delete Course
@@ -111,8 +157,13 @@ const AdminCourseView = () => {
 
     const filteredCourses = courses.filter(course =>
         course.CourseTitle?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        course.TeacherName?.toLowerCase().includes(searchTerm.toLowerCase())
+        course.TeacherName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        course.CourseId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        course.id?.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const inputClasses = "w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none";
+    const labelClasses = "block text-sm font-medium text-gray-700 mb-1";
 
     return (
         <div>
@@ -190,8 +241,10 @@ const AdminCourseView = () => {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex items-center justify-end gap-2">
-                                                {/* Edit Button Placeholder */}
-                                                <button className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
+                                                <button
+                                                    onClick={() => openEditModal(course)}
+                                                    className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                                >
                                                     <Edit2 size={16} />
                                                 </button>
 
@@ -212,13 +265,82 @@ const AdminCourseView = () => {
                 </div>
             </div>
 
-            {/* Modals */}
+            {/* Add Modal */}
             <Modal
                 isOpen={isAddModalOpen}
                 onClose={() => setIsAddModalOpen(false)}
                 title="Add New Course"
             >
                 <AddCourse handleSubmit={handleAddCourseSubmit} isLoading={isAddLoading} teachers={teachers} />
+            </Modal>
+
+            {/* Edit Modal */}
+            <Modal
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
+                title="Edit Course"
+            >
+                <form onSubmit={handleUpdateCourse} className="space-y-4">
+                    <div>
+                        <label className={labelClasses}>Course ID</label>
+                        <input type="text" value={editFormData.id} disabled className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-400" />
+                    </div>
+                    <div>
+                        <label className={labelClasses}>Course Title</label>
+                        <input
+                            type="text"
+                            required
+                            value={editFormData.title}
+                            onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                            className={inputClasses}
+                        />
+                    </div>
+                    <div>
+                        <label className={labelClasses}>Category</label>
+                        <input
+                            type="text"
+                            required
+                            value={editFormData.Category}
+                            onChange={(e) => setEditFormData({ ...editFormData, Category: e.target.value })}
+                            className={inputClasses}
+                        />
+                    </div>
+                    <div>
+                        <label className={labelClasses}>Teacher</label>
+                        <select
+                            required
+                            value={editFormData.teacherId}
+                            onChange={(e) => setEditFormData({ ...editFormData, teacherId: e.target.value })}
+                            className={inputClasses}
+                        >
+                            <option value="">Select a Teacher</option>
+                            {teachers.map(t => (
+                                <option key={t.id} value={t.id}>
+                                    {t.firstname} {t.lastname} ({t.id})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className={labelClasses}>Available Seats</label>
+                        <input
+                            type="number"
+                            required
+                            value={editFormData.Seats}
+                            onChange={(e) => setEditFormData({ ...editFormData, Seats: e.target.value })}
+                            className={inputClasses}
+                        />
+                    </div>
+                    <div className="pt-4">
+                        <button
+                            type="submit"
+                            disabled={isAddLoading}
+                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold transition-all active:translate-y-0.5 shadow-lg"
+                        >
+                            {isAddLoading ? "Updating..." : "Update Course"}
+                        </button>
+                    </div>
+                </form>
             </Modal>
         </div>
     );

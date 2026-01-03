@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../firebase-setup/firebase';
-import { doc, getDoc, query, collection, getDocs, where } from 'firebase/firestore';
+import { doc, getDoc, query, collection, getDocs, where, onSnapshot } from 'firebase/firestore';
 import { User, Mail, Phone, Hash, Clock, CheckCircle, XCircle } from 'lucide-react';
 import Loader from '../components/Loader';
 
@@ -34,61 +34,53 @@ function ProAndCourView({ user }) {
     }, [uid]);
 
     useEffect(() => {
-        const fetchAttendanceStats = async () => {
-            if (!uid) return;
-            try {
-                const q = query(collection(db, "Attendance"));
-                const querySnapshot = await getDocs(q);
-                let present = 0;
-                let absent = 0;
+        if (!uid) return;
+        const q = query(collection(db, "Attendance"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            let present = 0;
+            let absent = 0;
 
-                querySnapshot.forEach(doc => {
-                    const data = doc.data();
-                    if (data.records && data.records[uid]) {
-                        if (data.records[uid] === 'present') present++;
-                        else absent++;
-                    }
-                });
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.records && data.records[uid]) {
+                    if (data.records[uid] === 'present') present++;
+                    else absent++;
+                }
+            });
 
-                const total = present + absent;
-                const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
-                setAttendanceStats({ present, absent, percentage });
-            } catch (error) {
-                console.error("Error fetching attendance stats:", error);
-            }
-        };
+            const total = present + absent;
+            const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
+            setAttendanceStats({ present, absent, percentage });
+        }, (error) => {
+            console.error("Error with attendance stats listener:", error);
+        });
 
-        fetchAttendanceStats();
+        return () => unsubscribe();
     }, [uid]);
 
     useEffect(() => {
-        const fetchRegisteredCourses = async () => {
-            if (!uid) return;
-            setTableLoading(true);
-            try {
-                const q = query(collection(db, "Registered-Course"), where("uid", "==", uid));
-                const querySnapshot = await getDocs(q);
-                const registeredCoursesData = [];
-
-                querySnapshot.forEach((doc) => {
-                    const data = doc.data();
-                    registeredCoursesData.push({
-                        key: doc.id,
-                        Categories: data.CourseCategory,
-                        Title: data.courseTitle,
-                        Description: "Course Description"
-                    });
+        if (!uid) return;
+        setTableLoading(true);
+        const q = query(collection(db, "Registered-Course"), where("uid", "==", uid));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const registeredCoursesData = [];
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                registeredCoursesData.push({
+                    key: doc.id,
+                    Categories: data.CourseCategory,
+                    Title: data.courseTitle,
+                    Description: "Course Description"
                 });
+            });
+            setRegisteredCourses(registeredCoursesData);
+            setTableLoading(false);
+        }, (err) => {
+            console.error("Error with courses listener", err);
+            setTableLoading(false);
+        });
 
-                setRegisteredCourses(registeredCoursesData);
-            } catch (err) {
-                console.error("Error fetching courses", err);
-            } finally {
-                setTableLoading(false);
-            }
-        };
-
-        fetchRegisteredCourses();
+        return () => unsubscribe();
     }, [uid]);
 
     return (

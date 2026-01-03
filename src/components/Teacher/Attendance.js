@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { db } from '../../firebase-setup/firebase';
-import { collection, getDocs, addDoc, query, where, Timestamp, deleteDoc, doc, updateDoc, orderBy } from 'firebase/firestore';
+import { collection, getDocs, addDoc, query, where, Timestamp, deleteDoc, doc, updateDoc, orderBy, onSnapshot } from 'firebase/firestore';
 import Loader from '../Loader';
+import { useAuth } from '../../context/AuthContext';
 import {
     CheckCircle,
     XCircle,
@@ -17,10 +18,12 @@ import {
 } from 'lucide-react';
 
 const Attendance = () => {
+    const { user } = useAuth();
     const [view, setView] = useState('mark'); // 'mark' | 'report'
     const [students, setStudents] = useState([]);
     const [loading, setLoading] = useState(false);
     const [attendanceData, setAttendanceData] = useState({});
+    const [assignedCourse, setAssignedCourse] = useState(null);
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [attendanceHistory, setAttendanceHistory] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -28,8 +31,24 @@ const Attendance = () => {
     const [summary, setSummary] = useState({ present: 0, absent: 0 });
 
     const fetchStudents = useCallback(async () => {
+        if (!user?.id) return;
         setLoading(true);
         try {
+            // 1. Fetch Assigned Course
+            const coursesRef = collection(db, "Courses");
+            const courseQuery = query(coursesRef, where("TeacherId", "==", user.id));
+            const courseSnapshot = await getDocs(courseQuery);
+
+            let subjectTitle = "";
+            if (!courseSnapshot.empty) {
+                const courseData = courseSnapshot.docs[0].data();
+                setAssignedCourse({ id: courseSnapshot.docs[0].id, ...courseData });
+                subjectTitle = courseData.CourseTitle;
+            } else {
+                setAssignedCourse(null);
+            }
+
+            // 2. Fetch enrolled students
             const registeredSnapshot = await getDocs(collection(db, "Registered-Course"));
             const enrolledStudentIds = new Set();
             registeredSnapshot.forEach(doc => {
@@ -56,12 +75,17 @@ const Attendance = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [user]);
 
     const fetchAttendanceByDate = useCallback(async (selectedDate) => {
+        if (!assignedCourse) return;
         setLoading(true);
         try {
-            const q = query(collection(db, "Attendance"), where("date", "==", selectedDate));
+            const q = query(
+                collection(db, "Attendance"),
+                where("date", "==", selectedDate),
+                where("subject", "==", assignedCourse.CourseTitle)
+            );
             const querySnapshot = await getDocs(q);
 
             if (!querySnapshot.empty) {
@@ -80,7 +104,7 @@ const Attendance = () => {
         } finally {
             setLoading(false);
         }
-    }, [students]);
+    }, [students, assignedCourse]);
 
     const fetchAttendanceHistory = async () => {
         setLoading(true);
@@ -106,10 +130,28 @@ const Attendance = () => {
     useEffect(() => {
         if (view === 'mark' && students.length > 0) {
             fetchAttendanceByDate(date);
-        } else if (view === 'report') {
-            fetchAttendanceHistory();
         }
     }, [view, date, students.length, fetchAttendanceByDate]);
+
+    // REAL-TIME LISTENER for history
+    useEffect(() => {
+        if (!user?.id || !assignedCourse) return;
+
+        const q = query(
+            collection(db, "Attendance"),
+            where("subject", "==", assignedCourse.CourseTitle),
+            orderBy("date", "desc")
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const history = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setAttendanceHistory(history);
+        }, (error) => {
+            console.error("Attendance history listener error:", error);
+        });
+
+        return () => unsubscribe();
+    }, [user, assignedCourse]);
 
     useEffect(() => {
         const counts = Object.values(attendanceData).reduce(
@@ -132,18 +174,21 @@ const Attendance = () => {
             if (editingId) {
                 await updateDoc(doc(db, "Attendance", editingId), {
                     records: attendanceData,
-                    timestamp: Timestamp.now()
+                    timestamp: Timestamp.now(),
+                    subject: assignedCourse.CourseTitle,
+                    teacherId: user.id
                 });
             } else {
                 await addDoc(collection(db, "Attendance"), {
                     date: date,
                     records: attendanceData,
-                    timestamp: Timestamp.now()
+                    timestamp: Timestamp.now(),
+                    subject: assignedCourse.CourseTitle,
+                    teacherId: user.id
                 });
             }
             alert(editingId ? "Attendance updated successfully!" : "Attendance saved successfully!");
             if (view === 'report') {
-                fetchAttendanceHistory();
                 setView('report');
             }
         } catch (error) {
@@ -197,6 +242,7 @@ const Attendance = () => {
                 <div>
                     <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">
                         Attendance Management
+                        {assignedCourse && <span className="text-indigo-600 ml-2 text-xl font-bold">({assignedCourse.CourseTitle})</span>}
                     </h2>
                     <p className="text-gray-500 mt-1">
                         {view === 'mark' ? 'Capture daily attendance for students' : 'Review and manage past attendance records'}
@@ -207,8 +253,8 @@ const Attendance = () => {
                     <button
                         onClick={() => setView('mark')}
                         className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2 rounded-lg font-bold transition-all ${view === 'mark'
-                                ? 'bg-white text-indigo-600 shadow-sm'
-                                : 'text-gray-500 hover:text-gray-700'
+                            ? 'bg-white text-indigo-600 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-700'
                             }`}
                     >
                         <Calendar size={18} />
@@ -217,8 +263,8 @@ const Attendance = () => {
                     <button
                         onClick={() => setView('report')}
                         className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2 rounded-lg font-bold transition-all ${view === 'report'
-                                ? 'bg-white text-indigo-600 shadow-sm'
-                                : 'text-gray-500 hover:text-gray-700'
+                            ? 'bg-white text-indigo-600 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-700'
                             }`}
                     >
                         <History size={18} />
@@ -289,6 +335,15 @@ const Attendance = () => {
                                 <tbody className="divide-y divide-gray-50">
                                     {loading && students.length === 0 ? (
                                         <tr><td colSpan="3" className="px-8 py-12"><Loader type="dots" /></td></tr>
+                                    ) : !assignedCourse ? (
+                                        <tr>
+                                            <td colSpan="3" className="px-8 py-12 text-center">
+                                                <div className="flex flex-col items-center gap-2 text-red-500">
+                                                    <AlertCircle size={48} strokeWidth={1} />
+                                                    <p className="font-bold">No assigned course found. You cannot mark attendance.</p>
+                                                </div>
+                                            </td>
+                                        </tr>
                                     ) : students.length === 0 ? (
                                         <tr>
                                             <td colSpan="3" className="px-8 py-12 text-center">
@@ -319,8 +374,8 @@ const Attendance = () => {
                                                     <button
                                                         onClick={() => handleAttendanceChange(student.id, 'present')}
                                                         className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold text-sm ${attendanceData[student.id] === 'present'
-                                                                ? 'bg-green-500 text-white shadow-md shadow-green-100 ring-2 ring-green-500 ring-offset-2'
-                                                                : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
+                                                            ? 'bg-green-500 text-white shadow-md shadow-green-100 ring-2 ring-green-500 ring-offset-2'
+                                                            : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
                                                             }`}
                                                     >
                                                         <CheckCircle size={16} />
@@ -329,8 +384,8 @@ const Attendance = () => {
                                                     <button
                                                         onClick={() => handleAttendanceChange(student.id, 'absent')}
                                                         className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-bold text-sm ${attendanceData[student.id] === 'absent'
-                                                                ? 'bg-red-500 text-white shadow-md shadow-red-100 ring-2 ring-red-500 ring-offset-2'
-                                                                : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
+                                                            ? 'bg-red-500 text-white shadow-md shadow-red-100 ring-2 ring-red-500 ring-offset-2'
+                                                            : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
                                                             }`}
                                                     >
                                                         <XCircle size={16} />
@@ -399,7 +454,7 @@ const Attendance = () => {
                                                 </div>
                                                 <div>
                                                     <h3 className="font-black text-gray-900">{record.date}</h3>
-                                                    <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Attendance Sheet</p>
+                                                    <p className="text-xs text-indigo-500 font-bold uppercase tracking-widest">{record.subject || 'Academic Session'}</p>
                                                 </div>
                                             </div>
                                             <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${percentage >= 75 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'

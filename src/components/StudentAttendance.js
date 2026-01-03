@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase-setup/firebase';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import Loader from './Loader';
 import {
     Calendar,
@@ -17,43 +17,41 @@ const StudentAttendance = ({ user }) => {
     const [stats, setStats] = useState({ total: 0, present: 0, absent: 0, percentage: 0 });
 
     useEffect(() => {
-        const fetchAttendance = async () => {
-            if (!user?.uid) return;
-            setLoading(true);
-            try {
-                const q = query(collection(db, "Attendance"), orderBy("date", "desc"));
-                const querySnapshot = await getDocs(q);
-                const records = [];
-                let present = 0;
-                let absent = 0;
+        if (!user?.uid) return;
+        setLoading(true);
 
-                querySnapshot.forEach(doc => {
-                    const data = doc.data();
-                    if (data.records && data.records[user.uid]) {
-                        const status = data.records[user.uid];
-                        records.push({
-                            id: doc.id,
-                            date: data.date,
-                            status: status
-                        });
-                        if (status === 'present') present++;
-                        else absent++;
-                    }
-                });
+        const q = query(collection(db, "Attendance"), orderBy("date", "desc"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const records = [];
+            let present = 0;
+            let absent = 0;
 
-                setAttendance(records);
-                const total = records.length;
-                const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
-                setStats({ total, present, absent, percentage });
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.records && data.records[user.uid]) {
+                    const status = data.records[user.uid];
+                    records.push({
+                        id: doc.id,
+                        date: data.date,
+                        status: status,
+                        subject: data.subject || 'General'
+                    });
+                    if (status === 'present') present++;
+                    else absent++;
+                }
+            });
 
-            } catch (error) {
-                console.error("Error fetching student attendance:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
+            setAttendance(records);
+            const total = records.length;
+            const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
+            setStats({ total, present, absent, percentage });
+            setLoading(false);
+        }, (error) => {
+            console.error("Error with attendance listener:", error);
+            setLoading(false);
+        });
 
-        fetchAttendance();
+        return () => unsubscribe();
     }, [user?.uid]);
 
     if (loading) return <div className="py-20"><Loader type="dots" /></div>;
@@ -111,7 +109,7 @@ const StudentAttendance = ({ user }) => {
                         <thead className="bg-gray-50/50">
                             <tr>
                                 <th className="px-8 py-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Date</th>
-                                <th className="px-8 py-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Day</th>
+                                <th className="px-8 py-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Subject</th>
                                 <th className="px-8 py-5 text-xs font-bold text-gray-400 uppercase tracking-wider text-center">Status</th>
                             </tr>
                         </thead>
@@ -132,12 +130,16 @@ const StudentAttendance = ({ user }) => {
                                 return (
                                     <tr key={record.id} className="hover:bg-gray-50/50 transition-colors">
                                         <td className="px-8 py-5 font-black text-gray-900">{record.date}</td>
-                                        <td className="px-8 py-5 text-gray-500 font-medium">{dayName}</td>
+                                        <td className="px-8 py-5">
+                                            <span className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border border-indigo-100 italic">
+                                                {record.subject}
+                                            </span>
+                                        </td>
                                         <td className="px-8 py-5">
                                             <div className="flex justify-center">
                                                 <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${record.status === 'present'
-                                                        ? 'bg-green-100 text-green-700 ring-1 ring-green-200'
-                                                        : 'bg-red-100 text-red-700 ring-1 ring-red-200'
+                                                    ? 'bg-green-100 text-green-700 ring-1 ring-green-200'
+                                                    : 'bg-red-100 text-red-700 ring-1 ring-red-200'
                                                     }`}>
                                                     {record.status}
                                                 </span>
