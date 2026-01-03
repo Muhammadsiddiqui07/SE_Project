@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, FileText, LogOut, Menu, X, GraduationCap } from 'lucide-react';
+import { LayoutDashboard, BookOpen, FileText, LogOut, Menu, X, GraduationCap, Clock } from 'lucide-react';
 import { db } from '../firebase-setup/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import ProAndCourView from '../Pages/studentDash';
 import RegistrationForm from '../components/RegCorForm';
 import DisplayContent from '../components/showContent';
+import StudentAttendance from '../components/StudentAttendance';
 import { useAuth } from '../context/AuthContext';
 
 const DashLayout = () => {
@@ -50,7 +51,9 @@ const DashLayout = () => {
             case 'courses':
                 return <RegistrationForm user={user} />;
             case 'content':
-                return <DisplayContent user={user}  />;
+                return <DisplayContent user={user} />;
+            case 'attendance':
+                return <StudentAttendance user={user} />;
             default:
                 return <ProAndCourView user={user} />;
         }
@@ -60,6 +63,7 @@ const DashLayout = () => {
         { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
         { id: 'courses', label: 'Register Course', icon: <BookOpen size={20} /> },
         { id: 'content', label: 'Content', icon: <FileText size={20} /> },
+        { id: 'attendance', label: 'Attendance', icon: <Clock size={20} /> },
     ];
 
     return (
